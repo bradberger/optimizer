@@ -9,6 +9,9 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"net/http"
+	"strconv"
+	"strings"
 )
 
 // Options provides a Client-Hinting compatible set of options for image encoding.
@@ -25,6 +28,60 @@ type Options struct {
 	Optimized     bool
 }
 
+// SetFromRequest sets the options based on headers/parameters in the http request
+func (o *Options) SetFromRequest(r *http.Request) {
+
+	// Get the mime type.
+	if strings.Contains(r.Header.Get("Accept"), "image/webp") {
+		o.Mime = "image/webp"
+	}
+
+	// Get the DPR
+	dpr, err := strconv.ParseFloat(r.Header.Get("DPR"), 64)
+	if err != nil {
+		dpr, err = strconv.ParseFloat(r.FormValue("dpr"), 64)
+	}
+	if err != nil {
+		dpr = 1.0
+	}
+	o.Dpr = dpr
+
+	// Set SaveData flag
+	if r.Header.Get("Save-Data") == "1" || r.FormValue("save-data") == "1" {
+		o.SaveData = true
+	} else {
+		o.SaveData = false
+	}
+
+	// Get the Viewport Width
+	viewport, err := strconv.ParseFloat(r.Header.Get("Viewport-Width"), 64)
+	if err != nil {
+		viewport, err = strconv.ParseFloat(r.FormValue("viewport-width"), 64)
+	}
+	o.ViewportWidth = viewport
+
+	// Set the image width.
+	width, err := strconv.Atoi(r.Header.Get("Width"))
+	if err != nil {
+		width, _ = strconv.Atoi(r.FormValue("width"))
+	}
+	if width > 0 {
+		o.Width = uint(width)
+	}
+
+	// Set Downlink
+	downlink, err := strconv.ParseFloat(r.Header.Get("Downlink"), 64)
+	if err != nil {
+		downlink, err = strconv.ParseFloat(r.FormValue("downlink"), 64)
+	}
+	if err != nil {
+		downlink = 0
+	}
+	o.Downlink = downlink
+
+}
+
+// Optimize sets the Quality dependent on various factors
 func (o *Options) Optimize() {
 
 	if !o.Optimized {
